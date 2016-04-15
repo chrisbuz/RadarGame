@@ -34,7 +34,7 @@ var destroyer;
 var uboat;
 
 //array that holds the positions to transition for gamestate
-var position = new Array();
+var position;
 
 OverGame.SetupState = function(game) {
     
@@ -61,10 +61,46 @@ OverGame.SetupState.prototype = {
         destroyerRotated = false;
         uboatRotated = false;
         
+        position = new Array();
+        
         this.add.sprite(0, 0, 'secondarybackground');
         
 		var mouse_o = new Phaser.Sound(game, 'mouse_o', .4);
 		var mouse_d = new Phaser.Sound(game, 'mouse_d', .4);
+        
+        var mute_btn = new Phaser.Button(game, 1100, 50, 'mute', function() {
+            if(mute_btn.frame == 0) {
+                mute_btn.frame = 1;
+                muteframe = 1;
+                game.menumusic.mute = true;
+            }
+            
+            else {
+                mute_btn.frame = 0;
+                muteframe = 0;
+                game.menumusic.mute = false;
+            }
+        }, this);
+        
+        mute_btn.frame = muteframe;
+        mute_btn.anchor.setTo(0.5, 0.5);
+        
+        var pause_btn = new Phaser.Button(game, 1150, 50, 'pause', function() {
+            if(pause_btn.frame == 0) {
+                pause_btn.frame = 1;
+                pauseframe = 1;
+                game.menumusic.resume();
+            }
+            
+            else {
+                pause_btn.frame = 0;
+                pauseframe = 0;
+                game.menumusic.pause();
+            }
+        }, this);
+        
+        pause_btn.frame = pauseframe;
+        pause_btn.anchor.setTo(0.5, 0.5);
         
 	    back_btn = new Phaser.Button(game, 44, 44, 'back', this.onBack, this, 1, 0, 1);
         back_btn.anchor.setTo(0.5, 0.5);
@@ -79,9 +115,9 @@ OverGame.SetupState.prototype = {
         waiting.anchor.setTo(0.5,0.5);
         waiting.visible = false;
         
-        text = "Place your ships on the grid\nTo rotate press the spacebar\n\nOnce all ships are placed, press 'Ready'\n(Note: 'Ready' won't show up \nuntil all ships are placed.)";
-        style = { font: "32px Calibri", fill: "#ffffff", align: 'center' };
-        instructions = new Phaser.Text(game, 850, 100, text, style);
+        text = "Place your ships on the grid\n\nWhile dragging the ship,\npress the spacebar to rotate\n\nPress 'READY' when all ships are placed\n\n(Note: 'READY' will only appear \nonce all ships are placed.)";
+        style = { font: "24px Calibri", fill: "#ffffff", align: 'center' };
+        instructions = new Phaser.Text(game, 850, 150, text, style);
         instructions.anchor.setTo(0.5, 0);
         
         text = currentRoom;
@@ -92,17 +128,21 @@ OverGame.SetupState.prototype = {
         //Add over and down sounds to the buttons
 		back_btn.setSounds(mouse_o, '', mouse_d);
         ready_btn.setSounds(mouse_o, '', mouse_d);
+        pause_btn.setSounds(mouse_o, '', mouse_d);
+        mute_btn.setSounds(mouse_o, '', mouse_d);
     
 		//Apply to game
 		game.add.existing(back_btn);
         game.add.existing(ready_btn);
+        game.add.existing(pause_btn);
+        game.add.existing(mute_btn);
         game.add.existing(instructions);
         game.add.existing(waiting);
         game.add.existing(roomName);
         
         this.makeTiles(44*3+22, 44*3);
         
-        carrier = game.add.sprite(100, 600, 'carrier', 1);
+        carrier = game.add.sprite(210, 600, 'carrier', 1);
         updateCarrierBounds();
         carrier.anchor.setTo(0.2, 0.5);
         carrier.inputEnabled = true;
@@ -111,7 +151,7 @@ OverGame.SetupState.prototype = {
         carrier.events.onDragStop.add(this.carrierDragStop);
         carrier.events.onDragStart.add(this.carrierDragStart);
         
-        battleship = game.add.sprite(100, 650, 'battleship', 1);
+        battleship = game.add.sprite(190, 650, 'battleship', 1);
         updateBattleshipBounds();
         battleship.anchor.setTo(0.25, 0.5);
         battleship.inputEnabled = true;
@@ -120,7 +160,7 @@ OverGame.SetupState.prototype = {
         battleship.events.onDragStop.add(this.battleshipDragStop);
         battleship.events.onDragStart.add(this.battleshipDragStart);
         
-        submarine = game.add.sprite(325, 600, 'submarine', 1);
+        submarine = game.add.sprite(435, 600, 'submarine', 1);
         updateSubmarineBounds();
         submarine.anchor.setTo(0.333, 0.5);
         submarine.inputEnabled = true;
@@ -129,7 +169,7 @@ OverGame.SetupState.prototype = {
         submarine.events.onDragStop.add(this.submarineDragStop);
         submarine.events.onDragStart.add(this.submarineDragStart);
         
-        destroyer = game.add.sprite(280, 650, 'destroyer', 1);
+        destroyer = game.add.sprite(370, 650, 'destroyer', 1);
         updateDestroyerBounds();
         destroyer.anchor.setTo(0.333, 0.5);
         destroyer.inputEnabled = true;
@@ -138,7 +178,7 @@ OverGame.SetupState.prototype = {
         destroyer.events.onDragStop.add(this.destroyerDragStop);
         destroyer.events.onDragStart.add(this.destroyerDragStart);
         
-        uboat = game.add.sprite(415, 650, 'uboat', 1);
+        uboat = game.add.sprite(505, 650, 'uboat', 1);
         updateUboatBounds();
         uboat.anchor.setTo(0.5, 0.5);
         uboat.inputEnabled = true;
@@ -173,7 +213,9 @@ OverGame.SetupState.prototype = {
     },
     
     onBack: function() {
-        IO.socket.emit('leave room');
+        IO.socket.emit('leave room', { room: currentRoom, disconnect: false, readyOn: readyOn, playOn: playOn } );
+        readyOn = false;
+        playOn = false;
         var message = 'I have left the room';
         console.log(message);
         game.state.start('Main');
@@ -181,6 +223,8 @@ OverGame.SetupState.prototype = {
     
     onReady: function() {
         IO.socket.emit('play', { room: currentRoom } );
+        readyOn = true;
+        
         ready_btn.visible = false;
         instructions.visible = false;
         waiting.visible = true;
@@ -205,7 +249,7 @@ OverGame.SetupState.prototype = {
 
         uboat.inputEnabled = false;
         pos = { xpos: uboat.x, ypos: uboat.y, rotated: uboatRotated };
-        position.push(pos);  
+        position.push(pos); 
     },
     
     //DragStop functions FOR SHIPS
@@ -226,7 +270,7 @@ OverGame.SetupState.prototype = {
         if(item.name.top < 44*3-22 || item.name.bottom > 44*13-22 ||
            item.name.left < 44*3 || item.name.right > 44*13 ||
            checkOverlap(carrier, battleship, false) || checkOverlap(carrier, submarine, false) || checkOverlap(carrier, destroyer, false) || checkOverlap(carrier, uboat, false)) {
-            item.x = 100;
+            item.x = 210;
             item.y = 600;
             item.angle = 0;
             carrierOn = false;
@@ -259,7 +303,7 @@ OverGame.SetupState.prototype = {
         if(item.name.top < 44*3-22 || item.name.bottom > 44*13-22 ||
            item.name.left < 44*3 || item.name.right > 44*13 || 
            checkOverlap(battleship, carrier, false) || checkOverlap(battleship, submarine, false) || checkOverlap(battleship, destroyer, false) || checkOverlap(battleship, uboat, false)) {
-            item.x = 100;
+            item.x = 190;
             item.y = 650;
             item.angle = 0;
             battleshipOn = false;
@@ -292,7 +336,7 @@ OverGame.SetupState.prototype = {
         if(item.name.top < 44*3-22 || item.name.bottom > 44*13-22 ||
            item.name.left < 44*3 || item.name.right > 44*13 ||
            checkOverlap(submarine, carrier, false) || checkOverlap(submarine, battleship, false) || checkOverlap(submarine, destroyer, false) || checkOverlap(submarine, uboat, false)) {
-            item.x = 325;
+            item.x = 435;
             item.y = 600;
             item.angle = 0;
             submarineOn = false;
@@ -325,7 +369,7 @@ OverGame.SetupState.prototype = {
         if(item.name.top < 44*3-22 || item.name.bottom > 44*13-22 ||
            item.name.left < 44*3 || item.name.right > 44*13 ||
             checkOverlap(destroyer, carrier, false) || checkOverlap(destroyer, battleship, false) || checkOverlap(destroyer, submarine, false) || checkOverlap(destroyer, uboat, false)) {
-            item.x = 280;
+            item.x = 370;
             item.y = 650;
             item.angle = 0;
             destroyerOn = false;
@@ -358,7 +402,7 @@ OverGame.SetupState.prototype = {
         if(item.name.top < 44*3-22 || item.name.bottom > 44*13-22 ||
            item.name.left < 44*3 || item.name.right > 44*13 ||
            checkOverlap(uboat, carrier, false) || checkOverlap(uboat, battleship, false) || checkOverlap(uboat, submarine, false) || checkOverlap(uboat, destroyer, false)) {
-            item.x = 415;
+            item.x = 505;
             item.y = 650;
             item.angle = 0;
             uboatOn = false;
@@ -470,29 +514,6 @@ OverGame.SetupState.prototype = {
     makeTiles: function(x, y) {
         var style = { font: '24px Algerian', fill: '#ffffff' };
 
-        var number;
-        //add 1 - 10
-        number = game.add.text(49+x-100, 44*0+y, '1', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*1+y, '2', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*2+y, '3', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*3+y, '4', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*4+y, '5', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*5+y, '6', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*6+y, '7', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*7+y, '8', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*8+y, '9', style);
-        number.anchor.setTo(0.5, 0.5);
-        number = game.add.text(49+x-100, 44*9+y, '10', style);
-        number.anchor.setTo(0.5, 0.5);
-
         var letter;
         //add A - J
         letter = game.add.text(44*0+x, 49+y-100, 'A', style);
@@ -516,11 +537,17 @@ OverGame.SetupState.prototype = {
         letter = game.add.text(44*9+x, 49+y-100, 'J', style);
         letter.anchor.setTo(0.5, 0.5);
 
+        //add 1 - 10
+        for(var i = 1; i <= 10; i++) {
+            var number;
+            number = game.add.text(49+x-100, 44*(i-1)+y, i, style);
+            number.anchor.setTo(0.5, 0.5);
+        }
+        
         //add set up tiles
         for(var i = 0; i < 10; i++) {
             for(var k = 0; k < 10; k++) {
                 var tile = game.add.sprite(44*i + x, 44*k + y, 'tile');
-                tile.frame = 1;
                 tile.anchor.setTo(0.5, 0.5);
             }
         }    

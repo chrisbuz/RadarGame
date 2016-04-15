@@ -14,7 +14,8 @@ var App = {
         game.state.add('Ready', OverGame.ReadyState);
         game.state.add('Setup', OverGame.SetupState);
         game.state.add('Game', OverGame.GameState);
-        game.state.add('Instructions', OverGame.InstructionState);
+        game.state.add('Instruct1', OverGame.Instruction1State);
+        game.state.add('Instruct2', OverGame.Instruction2State);
 
         game.state.start('Boot');
 

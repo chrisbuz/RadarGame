@@ -1,6 +1,8 @@
 var OverGame = {};
 var IO = {};
-var currentRoom = '';
+var currentRoom;
+var readyOn;
+var playOn;
 
 OverGame.BootState = function(game) {
     
@@ -26,6 +28,10 @@ OverGame.BootState.prototype = {
 		game.stage.scale.minHeight = 720;
 		this.stage.scale.setScreenSize(true);
 		
+        currentRoom = '';
+        readyOn = false;
+        playOn = false;
+        
         IO = {
             
             init: function() {
@@ -45,8 +51,9 @@ OverGame.BootState.prototype = {
                 IO.socket.on('start', IO.start);
                 IO.socket.on('opponent start', IO.opponentStart);
                 IO.socket.on('tile send', IO.tileSend);
-                IO.socket.on('tile receive', IO.tileReceive); 
+                IO.socket.on('tile receive', IO.tileReceive);
                 IO.socket.on('game over', IO.gameOver);
+                IO.socket.on('sunk', IO.sunk);
                 IO.socket.on('disconnect', IO.disconnect);
             },
 
@@ -73,7 +80,9 @@ OverGame.BootState.prototype = {
             },
             
             leaveRoom : function() {
-                IO.socket.emit('leave room');
+                IO.socket.emit('leave room', { room: currentRoom, disconnect: false, readyOn: readyOn, playOn: playOn } );
+                readyOn = false;
+                playOn = false;
                 game.state.start('Ready');
                 console.log('Opponent has left game...');
             },
@@ -84,16 +93,19 @@ OverGame.BootState.prototype = {
             },
             
             play : function() {
+                playOn = true;
                 game.state.start('Game');  
             },
             
             start : function() {
-                console.log('You will start the game');
+                var data = { room: currentRoom, message: 'Your turn' };
+                OverGame.GameState.prototype.notification(data);
                 OverGame.GameState.prototype.start();
             },
             
             opponentStart : function() {
-                console.log('Opponent will start the game');
+                var data = { room: currentRoom, message: 'Opponent\'s turn' };
+                OverGame.GameState.prototype.notification(data);
             },
             
             tileSend : function(data) {
@@ -104,15 +116,22 @@ OverGame.BootState.prototype = {
                 OverGame.GameState.prototype.tileReceive(data);
             },
             
-            gameOver : function(data) {
-                OverGame.GameState.prototype.won();    
+            gameOver : function() {
+                OverGame.GameState.prototype.won();
             },
             
-            disconnect : function(data) {
-                IO.socket.emit('leave room');
+            sunk : function(data) {
+                OverGame.GameState.prototype.sunk(data);
+            },
+            
+            disconnect : function() {
+                readyOn = false;
+                playOn = false;
+                IO.socket.emit('leave room', { room: currentRoom, disconnect: true, readyOn: readyOn, playOn: playOn } );
                 game.state.start('Ready');
-                console.log('Opponent has left game...');
             }
+            
+            
         };
             
         IO.init();
