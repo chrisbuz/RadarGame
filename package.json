@@ -1,0 +1,12 @@
+{
+	"devDependencies" : {
+	    "express": "*",
+	    "path": "*",
+	    "http": "*",
+	    "socket.io": "*",
+	    "morgan": "*"
+	},
+	"scripts": {
+	    "start": "node server.js"
+	}
+}
