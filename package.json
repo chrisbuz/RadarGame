@@ -3,7 +3,7 @@
 	    "express": "*",
 	    "path": "*",
 	    "http": "*",
-	    "socket.io": "*",
+	    "socket.io": "0.9.*",
 	    "morgan": "*"
 	},
 	"scripts": {

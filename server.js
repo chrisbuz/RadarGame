@@ -19,7 +19,9 @@ var app = express();
 
 //Create a simple Express application
     //Turn down logging activity
-    //app.use(morgan('combined', {stream: accessLogStream}));
+    morgan('combined',{
+        skip: function (req, res){return res.statusCode < 400}
+    });
     
     //Serve static html, js, css, and image files from the Phaser root dir
     app.use(express.static(path.join(__dirname)));
